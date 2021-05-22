@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -15,12 +16,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	f, err := os.Create("patterns.json")
+	if err != nil {
+		return
+	}
+	defer f.Close()
 	for _, fname := range fnames {
 		jsonData, err := midiToJSON(fname)
 		if err != nil {
 			fmt.Println(err)
 		}
-		fmt.Println(jsonData)
+		f.WriteString(jsonData)
+		f.WriteString("\n")
 	}
 
 }
@@ -82,7 +89,7 @@ func midiToJSON(f string) (jsonData string, err error) {
 		// fmt.Println(s)
 		data[noteNames[note]] = s
 	}
-	b, err := json.MarshalIndent(data, "", " ")
+	b, err := json.Marshal(data)
 	if err != nil {
 		return
 	}
