@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+drummy
+generated/
+cat-drums_2bar_small.lokl.tar
+
 # C extensions
 *.so
 

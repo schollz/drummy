@@ -1,2 +1,6 @@
 # drummy
-ai drums
+
+```
+sudo make install
+make generate
+```
