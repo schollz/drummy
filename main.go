@@ -7,21 +7,34 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/schollz/progressbar/v3"
 	"gitlab.com/gomidi/midi/reader"
 )
 
 func main() {
 	var err error
-	fnames, err := filepath.Glob("generated/*.mid")
-	if err != nil {
-		panic(err)
+	for i := 1; i <= 10; i++ {
+		err = generate(fmt.Sprintf("generated%d", i))
+		if err != nil {
+			panic(err)
+		}
 	}
-	f, err := os.Create("patterns.json")
+
+}
+
+func generate(folderName string) (err error) {
+	fnames, err := filepath.Glob(folderName + "/*.mid")
+	if err != nil {
+		return
+	}
+	f, err := os.Create(folderName + "/patterns.json")
 	if err != nil {
 		return
 	}
 	defer f.Close()
+	bar := progressbar.Default(int64(len(fnames)))
 	for _, fname := range fnames {
+		bar.Add(1)
 		jsonData, err := midiToJSON(fname)
 		if err != nil {
 			fmt.Println(err)
@@ -29,7 +42,7 @@ func main() {
 		f.WriteString(jsonData)
 		f.WriteString("\n")
 	}
-
+	return
 }
 
 func midiToJSON(f string) (jsonData string, err error) {
