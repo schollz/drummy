@@ -33,8 +33,9 @@ end
 local query=table.concat(qs," INTERSECT ")
 query = "SELECT pattern FROM drum WHERE gid in ("..query..") AND ins=="..ins_to_find.." AND density > "..density_limits[1].." AND density < "..density_limits[2].." ORDER BY RANDOM() LIMIT 1"
 print(query)
-local new_pattern=os.capture("sqlite3 db.db '"..query.."'")
-print(new_pattern)
+os.execute("sqlite3 db.db '"..query.."' >a.txt 2>&1 &")
+--local new_pattern=os.capture("sqlite3 db.db '"..query.."'")
+--print(new_pattern)
 end
 
 ins=2
