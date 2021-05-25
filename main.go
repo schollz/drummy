@@ -46,6 +46,7 @@ BEGIN;
 	f.WriteString(`
 COMMIT;
 CREATE INDEX idx_gid ON drum(gid);
+CREATE INDEX idx_pid ON drum(pid);
 `)
 
 }
@@ -60,7 +61,7 @@ func generate(f *os.File, folderName string) (err error) {
 		bar.Add(1)
 		drums, err := midiToJSON(fname)
 		if err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			continue
 		}
 		for _, drum := range drums {
