@@ -34,11 +34,11 @@ func main() {
 	}
 	defer f.Close()
 	f.WriteString(`
-CREATE TABLE drum(id INTEGER, gid INTEGER, ins INTEGER, density INTEGER, fill INTEGER, pid INTEGER, pattern TEXT);
+CREATE TABLE drum(id INTEGER, gid INTEGER, ins INTEGER, density INTEGER, fill INTEGER, pid INTEGER);
 BEGIN;
 `)
 	for i := 1; i <= 1; i++ {
-		err = generate(f, fmt.Sprintf("generated%d", i))
+		err = generate(f, fmt.Sprintf("../aidrums/generated%d", i))
 		if err != nil {
 			panic(err)
 		}
@@ -65,7 +65,7 @@ func generate(f *os.File, folderName string) (err error) {
 			continue
 		}
 		for _, drum := range drums {
-			f.WriteString(fmt.Sprintf("INSERT INTO drum VALUES (%d,%d,%d,%d,%d,%d,\"%s\");\n", drum.ID, drum.GID, drum.Ins, drum.Density, drum.Fill, drum.PID, drum.Pattern))
+			f.WriteString(fmt.Sprintf("INSERT INTO drum VALUES (%d,%d,%d,%d,%d,%d);\n", drum.ID, drum.GID, drum.Ins, drum.Density, drum.Fill, drum.PID))
 		}
 	}
 	return
