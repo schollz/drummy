@@ -1,8 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,41 +11,66 @@ import (
 	"gitlab.com/gomidi/midi/reader"
 )
 
+var id int
+var gid int
+var seen map[string]bool
+
+type Drum struct {
+	ID      int
+	GID     int
+	Ins     int
+	Density int
+	Fill    int
+	PID     int64
+	Pattern string
+}
+
 func main() {
+	seen = make(map[string]bool)
 	var err error
-	for i := 1; i <= 10; i++ {
-		err = generate(fmt.Sprintf("generated%d", i))
+	f, err := os.Create("db.sql")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	f.WriteString(`
+CREATE TABLE drum(id INTEGER, gid INTEGER, ins INTEGER, density INTEGER, fill INTEGER, pid INTEGER, pattern TEXT);
+BEGIN;
+`)
+	for i := 1; i <= 1; i++ {
+		err = generate(f, fmt.Sprintf("generated%d", i))
 		if err != nil {
 			panic(err)
 		}
 	}
+	f.WriteString(`
+COMMIT;
+CREATE INDEX idx_gid ON drum(gid);
+`)
 
 }
 
-func generate(folderName string) (err error) {
+func generate(f *os.File, folderName string) (err error) {
 	fnames, err := filepath.Glob(folderName + "/*.mid")
 	if err != nil {
 		return
 	}
-	f, err := os.Create(folderName + "/patterns.json")
-	if err != nil {
-		return
-	}
-	defer f.Close()
 	bar := progressbar.Default(int64(len(fnames)))
 	for _, fname := range fnames {
 		bar.Add(1)
-		jsonData, err := midiToJSON(fname)
+		drums, err := midiToJSON(fname)
 		if err != nil {
 			fmt.Println(err)
+			continue
 		}
-		f.WriteString(jsonData)
-		f.WriteString("\n")
+		for _, drum := range drums {
+			f.WriteString(fmt.Sprintf("INSERT INTO drum VALUES (%d,%d,%d,%d,%d,%d,\"%s\");\n", drum.ID, drum.GID, drum.Ins, drum.Density, drum.Fill, drum.PID, drum.Pattern))
+		}
 	}
 	return
 }
 
-func midiToJSON(f string) (jsonData string, err error) {
+func midiToJSON(f string) (drums []Drum, err error) {
 	tracks := make(map[uint8][]bool)
 	// to disable logging, pass mid.NoLogger() as option
 	rd := reader.New(reader.NoLogger(),
@@ -74,22 +99,42 @@ func midiToJSON(f string) (jsonData string, err error) {
 	}
 	sort.Slice(notes, func(i, j int) bool { return notes[i] < notes[j] })
 
-	noteNames := make(map[uint8]string)
-	noteNames[36] = "kick"
-	noteNames[38] = "sd"
-	noteNames[42] = "ch"
-	noteNames[49] = "cc"
-	noteNames[46] = "oh"
-	noteNames[45] = "lt"
-	noteNames[48] = "mt"
-	noteNames[50] = "ht"
-	noteNames[51] = "rc"
-	data := make(map[string]string)
-	for _, note := range notes {
+	noteNames := make(map[uint8]int)
+	noteNames[36] = 1  //"kick"
+	noteNames[35] = 1  // bass drum /kick
+	noteNames[40] = 2  // "electric sd"
+	noteNames[38] = 2  //"sd"
+	noteNames[37] = 2  //"sd stick"
+	noteNames[42] = 3  //"ch/hh"
+	noteNames[44] = 3  //"ch/hh"
+	noteNames[46] = 4  //"oh"
+	noteNames[49] = 5  //"cc"
+	noteNames[57] = 5  //"cc"
+	noteNames[51] = 6  //"rc"
+	noteNames[45] = 7  //"lt"
+	noteNames[48] = 8  //"mt"
+	noteNames[50] = 9  //"ht"
+	noteNames[39] = 10 //"clap"
+	noteNames[69] = 10 //"cabasa"
+	noteNames[82] = 11 //"shaker"
+	noteNames[53] = 12 //"bell"
+	noteNames[56] = 12 //"cowbell"
+	noteNames[54] = 13 //"tamborine"
+	startGID := gid
+	startID := id
+	gid += 1
+	drums = make([]Drum, len(notes))
+	fulltrack := ""
+	for i, note := range notes {
+		id += 1
 		s := ""
-		for _, v := range tracks[note] {
+		xs := 0
+		pid := int64(0)
+		for j, v := range tracks[note] {
 			if v {
 				s += "x"
+				xs += 1
+				pid = pid + int64(math.Pow(2, float64(j)))
 			} else {
 				s += "-"
 			}
@@ -98,14 +143,24 @@ func midiToJSON(f string) (jsonData string, err error) {
 			err = fmt.Errorf("no name for note %v", note)
 			return
 		}
-		// fmt.Println(note, noteNames[note])
-		// fmt.Println(s)
-		data[noteNames[note]] = s
+		fulltrack += fmt.Sprintf("%d%s", noteNames[note], s)
+		drums[i] = Drum{
+			ID:      id,
+			GID:     gid,
+			Ins:     noteNames[note],
+			Density: xs * 100 / len(tracks[note]),
+			Fill:    0,
+			Pattern: s,
+			PID:     pid,
+		}
 	}
-	b, err := json.Marshal(data)
-	if err != nil {
+	if _, ok := seen[fulltrack]; ok {
+		// reset ids
+		gid = startGID
+		id = startID
+		err = fmt.Errorf("already have this one: %s", fulltrack)
 		return
 	}
-	jsonData = string(b)
+	seen[fulltrack] = true
 	return
 }

@@ -2,11 +2,11 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+*.mid
 drummy
 generated/
 cat-drums_2bar_small.lokl.tar
-
+*.sql
 # C extensions
 *.so
 
