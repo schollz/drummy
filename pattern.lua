@@ -1,14 +1,14 @@
 TEMP_DIR="/tmp/"
 
-local charset = {}  do -- [0-9a-zA-Z]
-    for c = 48, 57  do table.insert(charset, string.char(c)) end
-    for c = 65, 90  do table.insert(charset, string.char(c)) end
-    for c = 97, 122 do table.insert(charset, string.char(c)) end
+local charset={} do -- [0-9a-zA-Z]
+  for c=48,57 do table.insert(charset,string.char(c)) end
+  for c=65,90 do table.insert(charset,string.char(c)) end
+  for c=97,122 do table.insert(charset,string.char(c)) end
 end
 
 local function random_string(length)
-    if not length or length <= 0 then return '' end
-    return random_string(length - 1) .. charset[math.random(1, #charset)]
+  if not length or length<=0 then return '' end
+  return random_string(length-1)..charset[math.random(1,#charset)]
 end
 
 function os.capture(cmd,raw)
@@ -22,16 +22,21 @@ function os.capture(cmd,raw)
   return s
 end
 
+function os.file_exists(name)
+  local f=io.open(name,"r")
+  if f~=nil then io.close(f) return true else return false end
+end
+
 function os.write(fname,data)
-  local filehandle = io.open( fname, "w" )
+  local filehandle=io.open(fname,"w")
   filehandle:write(data)
   filehandle:close()
 end
 
 
 function os.read(fname)
-  local f = io.open(fname, "rb")
-  local content = f:read("*all")
+  local f=io.open(fname,"rb")
+  local content=f:read("*all")
   f:close()
   return content
 end
@@ -108,39 +113,41 @@ function db_random_group(ins_to_find,density_limits)
 end
 
 
-function sleep(n)  -- seconds
-  local t0 = os.clock()
-  while os.clock() - t0 <= n do end
+function sleep(n) -- seconds
+  local t0=os.clock()
+  while os.clock()-t0<=n do end
 end
 
 
 function run_sql_results()
   local cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.result' 2>&1 | grep -v Permission"
-  local s = os.capture(cmd)
-  fnames = {}
-  for word in s:gmatch("%S+") do table.insert(fnames, word) end
-  for i,v in ipairs(fnames) do
+  local s=os.capture(cmd)
+  fnames={}
+  for word in s:gmatch("%S+") do table.insert(fnames,word) end
+for i,v in ipairs(fnames) do
     print(i,v)
     -- print(os.read(v))
-    dofile(v)
-    os.remove(v)
+    if os.file_exists(v) then
+      dofile(v)
+      os.remove(v)
+    end
   end
 end
 
 function remove_old_results()
   local cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.result' 2>&1 | grep -v Permission"
-  local s = os.capture(cmd)
-  local fnames = {}
-  for word in s:gmatch("%S+") do table.insert(fnames, word) end
-  for i,v in ipairs(fnames) do
+  local s=os.capture(cmd)
+  local fnames={}
+  for word in s:gmatch("%S+") do table.insert(fnames,word) end
+for i,v in ipairs(fnames) do
     print("removing old result "..v)
     os.remove(v)
   end
   cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.sql' 2>&1 | grep -v Permission"
-  s = os.capture(cmd)
-  fnames = {}
-  for word in s:gmatch("%S+") do table.insert(fnames, word) end
-  for i,v in ipairs(fnames) do
+  s=os.capture(cmd)
+  fnames={}
+  for word in s:gmatch("%S+") do table.insert(fnames,word) end
+for i,v in ipairs(fnames) do
     print("removing old sql "..v)
     os.remove(v)
   end
