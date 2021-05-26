@@ -167,3 +167,12 @@ func midiToJSON(f string) (drums []Drum, err error) {
 	seen[fulltrack] = true
 	return
 }
+
+func PatternToInt(pattern string) (pid int64) {
+	for j, v := range pattern {
+		if string(v) == "x" {
+			pid = pid + int64(math.Pow(2, float64(j)))
+		}
+	}
+	return
+}
