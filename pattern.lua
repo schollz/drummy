@@ -77,7 +77,15 @@ function execute_sql_async(query)
   os.execute("(cat "..fname.." | sqlite3 db.db >"..fnameout.."; rm "..fname..") 2>&1 &")
 end
 
-function db_find_ins_with_ins_lock(ins_to_find,ins_locked,density_limits)
+function db_random_ins(ins_to_find,density_limits)
+  query=string.format([[SELECT 'print(num_to_pattern('||pid||')); test_global="ok"' FROM drum INDEXED BY idx_ins WHERE ins==%d AND density>%d AND density<%d ORDER BY RANDOM() LIMIT 1]],ins_to_find,density_limits[1],density_limits[2])
+  print(query)
+
+  -- async method
+  execute_sql_async(query)
+end
+
+function db_random_ins_locked(ins_to_find,ins_locked,density_limits)
   local qs={}
   for ins,pattern_string in pairs(ins_locked) do
     print(ins,pattern_string)
@@ -91,8 +99,8 @@ function db_find_ins_with_ins_lock(ins_to_find,ins_locked,density_limits)
   execute_sql_async(query)
 end
 
-function db_random_group(ins_to_find,ins_locked,density_limits)
-  local query=[[SELECT "if "||ins||"<=4 then print("||ins||",num_to_pattern("||pid||")) end" FROM drum INDEXED BY idx_gid WHERE gid in (SELECT gid FROM drum INDEXED BY idx_ins WHERE ins==1 ORDER BY RANDOM() LIMIT 1)]]
+function db_random_group(ins_to_find,density_limits)
+  local query=string.format([[SELECT "if "||ins||"<=4 then print("||ins||",num_to_pattern("||pid||")) end" FROM drum INDEXED BY idx_gid WHERE gid in (SELECT gid FROM drum INDEXED BY idx_ins WHERE ins==%d AND gdensity>%d AND gdensity<=%d ORDER BY RANDOM() LIMIT 1)]],ins_to_find,density_limits[1],density_limits[2])
   print(query)
 
   -- async method
@@ -145,8 +153,9 @@ locked={}
 locked[1]="x---x---x---x---x---x---x---x---"
 locked[3]="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 print("running")
-db_find_ins_with_ins_lock(ins,locked,{0,20})
-db_random_group()
+db_random_ins_locked(ins,locked,{0,20})
+db_random_ins(1,{0,20})
+db_random_group(1,{0,10})
 print("checking results")
 for i=1,20 do
   run_sql_results()
