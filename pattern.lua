@@ -1,3 +1,17 @@
+TEMP_DIR="/tmp/"
+
+math.randomseed(os.clock()^5)
+local charset = {}  do -- [0-9a-zA-Z]
+    for c = 48, 57  do table.insert(charset, string.char(c)) end
+    for c = 65, 90  do table.insert(charset, string.char(c)) end
+    for c = 97, 122 do table.insert(charset, string.char(c)) end
+end
+
+local function random_string(length)
+    if not length or length <= 0 then return '' end
+    return random_string(length - 1) .. charset[math.random(1, #charset)]
+end
+
 function os.capture(cmd,raw)
   local f=assert(io.popen(cmd,'r'))
   local s=assert(f:read('*a'))
@@ -7,6 +21,20 @@ function os.capture(cmd,raw)
   s=string.gsub(s,'%s+$','')
   s=string.gsub(s,'[\n\r]+',' ')
   return s
+end
+
+function os.write(fname,data)
+  local filehandle = io.open( fname, "w" )
+  filehandle:write(data)
+  filehandle:close()
+end
+
+
+function os.read(fname)
+  local f = io.open(fname, "rb")
+  local content = f:read("*all")
+  f:close()
+  return content
 end
 
 function pattern_to_num(pattern_string)
@@ -40,39 +68,89 @@ assert(num_to_pattern(pattern_to_num("--x---x---x---x---x---x---x-----"))=="--x-
 assert(num_to_pattern(pattern_to_num("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"))=="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","BAD NUM")
 
 
+-- runs sql in a non-blocking way
+function execute_sql_async(query)
+  local rand_string=random_string(4)
+  print(rand_string)
+  fname=TEMP_DIR.."exec."..rand_string..".sql"
+  fnameout=TEMP_DIR.."exec."..rand_string..".result"
+  os.write(fname,query)
+  os.execute("(cat "..fname.." | sqlite3 db.db >"..fnameout.."; rm "..fname..") 2>&1 &")
+end
 
-function find_ins_with_ins_lock(ins_to_find,ins_locked,density_limits)
+function db_find_ins_with_ins_lock(ins_to_find,ins_locked,density_limits)
   local qs={}
   for ins,pattern_string in pairs(ins_locked) do
     print(ins,pattern_string)
     table.insert(qs,"SELECT gid FROM drum INDEXED BY idx_pid WHERE ins=="..ins.." AND pid=="..pattern_to_num(pattern_string))
   end
   local query=table.concat(qs," INTERSECT ")
-  query="SELECT pid FROM drum WHERE gid in ("..query..") AND ins=="..ins_to_find.." AND density > "..density_limits[1].." AND density < "..density_limits[2].." ORDER BY RANDOM() LIMIT 1"
+  query=string.format([[SELECT 'print("'||pid||'"); test_global="ok"' FROM drum WHERE gid in (%s) AND ins==%d AND density>%d AND density<%d ORDER BY RANDOM() LIMIT 1]],query,ins_to_find,density_limits[1],density_limits[2])
   print(query)
-  -- async method
-  --os.execute("sqlite3 db.db '"..query.."' >a.txt 2>&1 &")
-  local new_pattern=os.capture("sqlite3 db.db '"..query.."'")
-  print(new_pattern)
 
-  -- alt method
-  local qs={}
-  for ins,pattern_string in pairs(ins_locked) do
-    print(ins,pattern_string)
-    table.insert(qs,"SELECT * FROM drum INDEXED BY idx_pid WHERE ins=="..ins.." AND pid=="..pattern_to_num(pattern_string))
-  end
-  local query=table.concat(qs," INTERSECT ")
-  query="SELECT pid FROM ("..query..") AND ins=="..ins_to_find.." AND density > "..density_limits[1].." AND density < "..density_limits[2].." ORDER BY RANDOM() LIMIT 1"
-  print(query)
   -- async method
-  --os.execute("sqlite3 db.db '"..query.."' >a.txt 2>&1 &")
-  local new_pattern=os.capture("sqlite3 db.db '"..query.."'")
-  print(new_pattern)
-
+  execute_sql_async(query)
 end
 
+function db_random_group(ins_to_find,ins_locked,density_limits)
+  local query=[[SELECT "print("||ins||","||pid||")" FROM drum INDEXED BY idx_gid WHERE gid in (SELECT ABS(RANDOM()%MAX(gid)) FROM drum)]]
+  print(query)
+
+  -- async method
+  execute_sql_async(query)
+end
+
+
+function sleep(n)  -- seconds
+  local t0 = os.clock()
+  while os.clock() - t0 <= n do end
+end
+
+
+function run_sql_results()
+  local cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.result' 2>&1 | grep -v Permission"
+  print(cmd)
+  local s = os.capture(cmd)
+  print("find results")
+  print(s)
+  fnames = {}
+  for word in s:gmatch("%S+") do table.insert(fnames, word) end
+  for i,v in ipairs(fnames) do
+    print(i,v)
+    dofile(v)
+    os.remove(v)
+  end
+end
+
+function remove_old_results()
+  local cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.result' 2>&1 | grep -v Permission"
+  local s = os.capture(cmd)
+  local fnames = {}
+  for word in s:gmatch("%S+") do table.insert(fnames, word) end
+  for i,v in ipairs(fnames) do
+    print("removing old result "..v)
+    os.remove(v)
+  end
+  cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.sql' 2>&1 | grep -v Permission"
+  s = os.capture(cmd)
+  fnames = {}
+  for word in s:gmatch("%S+") do table.insert(fnames, word) end
+  for i,v in ipairs(fnames) do
+    print("removing old sql "..v)
+    os.remove(v)
+  end
+end
+
+-- file glob
+remove_old_results()
 ins=2
 locked={}
 locked[1]="x---x---x---x---x---x---x---x---"
 locked[3]="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-find_ins_with_ins_lock(ins,locked,{0,20})
+print("running")
+db_find_ins_with_ins_lock(ins,locked,{0,20})
+db_random_group()
+print("sleeping")
+sleep(2)
+print("checking results")
+run_sql_results()
