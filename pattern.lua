@@ -1,4 +1,5 @@
 TEMP_DIR="/tmp/"
+RANDOMSEED="1284553781927398174017240"
 
 local charset={} do -- [0-9a-zA-Z]
   for c=48,57 do table.insert(charset,string.char(c)) end
@@ -83,7 +84,7 @@ function execute_sql_async(query)
 end
 
 function db_random_ins(ins_to_find,density_limits)
-  query=string.format([[SELECT 'print(num_to_pattern('||pid||')); test_global="ok"' FROM drum INDEXED BY idx_ins WHERE ins==%d AND density>%d AND density<%d ORDER BY RANDOM() LIMIT 1]],ins_to_find,density_limits[1],density_limits[2])
+  query=string.format([[SELECT 'print(num_to_pattern('||pid||')); test_global="ok"' FROM drum INDEXED BY idx_ins WHERE ins==%d AND density>%d AND density<%d ORDER BY substr(id * 0.%s, length(id) + 2) LIMIT 1]],ins_to_find,density_limits[1],density_limits[2],RANDOMSEED)
   print(query)
 
   -- async method
@@ -97,7 +98,7 @@ function db_random_ins_locked(ins_to_find,ins_locked,density_limits)
     table.insert(qs,"SELECT gid FROM drum INDEXED BY idx_pid WHERE ins=="..ins.." AND pid=="..pattern_to_num(pattern_string))
   end
   local query=table.concat(qs," INTERSECT ")
-  query=string.format([[SELECT 'print("'||pid||'"); test_global="ok"' FROM drum WHERE gid in (%s) AND ins==%d AND density>%d AND density<%d ORDER BY RANDOM() LIMIT 1]],query,ins_to_find,density_limits[1],density_limits[2])
+  query=string.format([[SELECT 'print("'||pid||'"); test_global="ok"' FROM drum WHERE gid in (%s) AND ins==%d AND density>%d AND density<%d ORDER BY substr(id * 0.%s, length(id) + 2) LIMIT 1]],query,ins_to_find,density_limits[1],density_limits[2],RANDOMSEED)
   print(query)
 
   -- async method
@@ -105,7 +106,7 @@ function db_random_ins_locked(ins_to_find,ins_locked,density_limits)
 end
 
 function db_random_group(ins_to_find,density_limits)
-  local query=string.format([[SELECT "if "||ins||"<=4 then print("||ins||",num_to_pattern("||pid||")) end" FROM drum INDEXED BY idx_gid WHERE gid in (SELECT gid FROM drum INDEXED BY idx_ins WHERE ins==%d AND gdensity>%d AND gdensity<=%d ORDER BY RANDOM() LIMIT 1)]],ins_to_find,density_limits[1],density_limits[2])
+  local query=string.format([[SELECT "if "||ins||"<=4 then print("||ins||",num_to_pattern("||pid||")) end" FROM drum INDEXED BY idx_gid WHERE gid in (SELECT gid FROM drum INDEXED BY idx_ins WHERE ins==%d AND gdensity>%d AND gdensity<=%d ORDER BY substr(id * 0.%s, length(id) + 2) LIMIT 1)]],ins_to_find,density_limits[1],density_limits[2],RANDOMSEED)
   print(query)
 
   -- async method
