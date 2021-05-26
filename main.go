@@ -132,12 +132,10 @@ func midiToJSON(f string) (drums []Drum, err error) {
 		id += 1
 		s := ""
 		xs := 0
-		pid := int64(0)
-		for j, v := range tracks[note] {
+		for _, v := range tracks[note] {
 			if v {
 				s += "x"
 				xs += 1
-				pid = pid + int64(math.Pow(2, float64(j)))
 			} else {
 				s += "-"
 			}
@@ -154,7 +152,7 @@ func midiToJSON(f string) (drums []Drum, err error) {
 			Density: xs * 100 / len(tracks[note]),
 			Fill:    0,
 			Pattern: s,
-			PID:     pid,
+			PID:     PatternToInt(s),
 		}
 	}
 	if _, ok := seen[fulltrack]; ok {
