@@ -93,7 +93,7 @@ function db_find_ins_with_ins_lock(ins_to_find,ins_locked,density_limits)
 end
 
 function db_random_group(ins_to_find,ins_locked,density_limits)
-  local query=[[SELECT "print("||ins||","||pid||")" FROM drum INDEXED BY idx_gid WHERE gid in (SELECT ABS(RANDOM()%MAX(gid)) FROM drum)]]
+  local query=[[SELECT "if "||ins||"<=4 then print("||ins||",num_to_pattern("||pid||")) end" FROM drum INDEXED BY idx_gid WHERE gid in (SELECT gid FROM drum INDEXED BY idx_ins WHERE ins==1 ORDER BY RANDOM() LIMIT 1)]]
   print(query)
 
   -- async method
@@ -109,14 +109,12 @@ end
 
 function run_sql_results()
   local cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.result' 2>&1 | grep -v Permission"
-  print(cmd)
   local s = os.capture(cmd)
-  print("find results")
-  print(s)
   fnames = {}
   for word in s:gmatch("%S+") do table.insert(fnames, word) end
   for i,v in ipairs(fnames) do
     print(i,v)
+    -- print(os.read(v))
     dofile(v)
     os.remove(v)
   end
@@ -150,7 +148,8 @@ locked[3]="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 print("running")
 db_find_ins_with_ins_lock(ins,locked,{0,20})
 db_random_group()
-print("sleeping")
-sleep(2)
 print("checking results")
-run_sql_results()
+for i=1,20 do
+  run_sql_results()
+  sleep(0.1)
+end
