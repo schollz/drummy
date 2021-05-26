@@ -12,6 +12,13 @@ local function random_string(length)
   return random_string(length-1)..charset[math.random(1,#charset)]
 end
 
+local function generate_seed()
+  RANDOMSEED=""
+  for i=1,10 do
+    RANDOMSEED=RANDOMSEED..math.random(1,10)
+  end
+end
+
 function os.capture(cmd,raw)
   local f=assert(io.popen(cmd,'r'))
   local s=assert(f:read('*a'))
@@ -136,7 +143,6 @@ function run_sql_results()
   for i,v in ipairs(fnames) do
     print(i,v)
     sqlcmd=v:gsub(".result",".sql")
-    -- print(os.read(v))
     if os.file_exists(v) and os.file_exists(sqlcmd) then
       local luacmd=os.read(v)
       cmd_cache[os.read(sqlcmd)]=luacmd
@@ -161,8 +167,10 @@ for i,v in ipairs(fnames) do
   cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.sql' 2>&1 | grep -v Permission"
   s=os.capture(cmd)
   fnames={}
-  for word in s:gmatch("%S+") do table.insert(fnames,word) end
-for i,v in ipairs(fnames) do
+  for word in s:gmatch("%S+") do
+    table.insert(fnames,word)
+  end
+  for i,v in ipairs(fnames) do
     print("removing old sql "..v)
     os.remove(v)
   end
@@ -175,17 +183,13 @@ locked={}
 locked[1]="x---x---x---x---x---x---x---x---"
 locked[3]="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 print("running")
-db_random_ins_locked(ins,locked,{0,20})
-db_random_ins(1,{0,20})
-db_random_group(1,{0,10})
-print("checking results")
-for i=1,20 do
-  run_sql_results()
-  sleep(0.1)
-end
-print("again")
-db_random_group(1,{0,10})
-for i=1,20 do
-  run_sql_results()
-  sleep(0.1)
+for i=1,3 do
+  db_random_ins_locked(ins,locked,{0,20})
+  db_random_ins(1,{0,20})
+  db_random_group(1,{0,10})
+  print("checking results")
+  for i=1,20 do
+    run_sql_results()
+    sleep(0.1)
+  end
 end
