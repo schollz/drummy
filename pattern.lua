@@ -45,14 +45,30 @@ function find_ins_with_ins_lock(ins_to_find,ins_locked,density_limits)
   local qs={}
   for ins,pattern_string in pairs(ins_locked) do
     print(ins,pattern_string)
-    table.insert(qs,"SELECT gid FROM drum WHERE ins=="..ins.." AND pid=="..pattern_to_num(pattern_string))
+    table.insert(qs,"SELECT gid FROM drum INDEXED BY idx_pid WHERE ins=="..ins.." AND pid=="..pattern_to_num(pattern_string))
   end
   local query=table.concat(qs," INTERSECT ")
-  query="SELECT pattern FROM drum WHERE gid in ("..query..") AND ins=="..ins_to_find.." AND density > "..density_limits[1].." AND density < "..density_limits[2].." ORDER BY RANDOM() LIMIT 1"
+  query="SELECT pid FROM drum WHERE gid in ("..query..") AND ins=="..ins_to_find.." AND density > "..density_limits[1].." AND density < "..density_limits[2].." ORDER BY RANDOM() LIMIT 1"
   print(query)
-  os.execute("sqlite3 db.db '"..query.."' >a.txt 2>&1 &")
-  --local new_pattern=os.capture("sqlite3 db.db '"..query.."'")
-  --print(new_pattern)
+  -- async method
+  --os.execute("sqlite3 db.db '"..query.."' >a.txt 2>&1 &")
+  local new_pattern=os.capture("sqlite3 db.db '"..query.."'")
+  print(new_pattern)
+
+  -- alt method
+  local qs={}
+  for ins,pattern_string in pairs(ins_locked) do
+    print(ins,pattern_string)
+    table.insert(qs,"SELECT * FROM drum INDEXED BY idx_pid WHERE ins=="..ins.." AND pid=="..pattern_to_num(pattern_string))
+  end
+  local query=table.concat(qs," INTERSECT ")
+  query="SELECT pid FROM ("..query..") AND ins=="..ins_to_find.." AND density > "..density_limits[1].." AND density < "..density_limits[2].." ORDER BY RANDOM() LIMIT 1"
+  print(query)
+  -- async method
+  --os.execute("sqlite3 db.db '"..query.."' >a.txt 2>&1 &")
+  local new_pattern=os.capture("sqlite3 db.db '"..query.."'")
+  print(new_pattern)
+
 end
 
 ins=2

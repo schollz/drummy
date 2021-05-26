@@ -28,6 +28,7 @@ type Drum struct {
 func main() {
 	seen = make(map[string]bool)
 	var err error
+	os.Remove("db.sql")
 	f, err := os.Create("db.sql")
 	if err != nil {
 		panic(err)
@@ -37,8 +38,8 @@ func main() {
 CREATE TABLE drum(id INTEGER, gid INTEGER, ins INTEGER, density INTEGER, fill INTEGER, pid INTEGER);
 BEGIN;
 `)
-	for i := 1; i <= 1; i++ {
-		err = generate(f, fmt.Sprintf("../aidrums/generated%d", i))
+	for i := 1; i <= 10; i++ {
+		err = generate(f, fmt.Sprintf("../drummy2/generated%d", i))
 		if err != nil {
 			panic(err)
 		}
@@ -47,6 +48,7 @@ BEGIN;
 COMMIT;
 CREATE INDEX idx_gid ON drum(gid);
 CREATE INDEX idx_pid ON drum(pid);
+CREATE INDEX idx_ins ON drum(ins);
 `)
 
 }
