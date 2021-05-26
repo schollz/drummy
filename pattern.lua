@@ -1,6 +1,5 @@
 TEMP_DIR="/tmp/"
 
-math.randomseed(os.clock()^5)
 local charset = {}  do -- [0-9a-zA-Z]
     for c = 48, 57  do table.insert(charset, string.char(c)) end
     for c = 65, 90  do table.insert(charset, string.char(c)) end
