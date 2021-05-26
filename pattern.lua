@@ -75,12 +75,17 @@ assert(num_to_pattern(pattern_to_num("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"))=="xxxx
 
 -- runs sql in a non-blocking way
 function execute_sql_async(query)
+  if cmd_cache[query]~=nil then
+    f=load(cmd_cache[query])
+    f()
+    do return end
+  end
   local rand_string=random_string(4)
   print(rand_string)
   fname=TEMP_DIR.."exec."..rand_string..".sql"
   fnameout=TEMP_DIR.."exec."..rand_string..".result"
   os.write(fname,query)
-  os.execute("(cat "..fname.." | sqlite3 db.db >"..fnameout.."; rm "..fname..") 2>&1 &")
+  os.execute("cat "..fname.." | sqlite3 db.db >"..fnameout.." 2>&1 &")
 end
 
 function db_random_ins(ins_to_find,density_limits)
@@ -119,21 +124,30 @@ function sleep(n) -- seconds
   while os.clock()-t0<=n do end
 end
 
+cmd_cache={}
 
 function run_sql_results()
   local cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.result' 2>&1 | grep -v Permission"
   local s=os.capture(cmd)
   fnames={}
-  for word in s:gmatch("%S+") do table.insert(fnames,word) end
-for i,v in ipairs(fnames) do
+  for word in s:gmatch("%S+") do
+    table.insert(fnames,word)
+  end
+  for i,v in ipairs(fnames) do
     print(i,v)
+    sqlcmd=v:gsub(".result",".sql")
     -- print(os.read(v))
-    if os.file_exists(v) then
-      dofile(v)
+    if os.file_exists(v) and os.file_exists(sqlcmd) then
+      local luacmd=os.read(v)
+      cmd_cache[os.read(sqlcmd)]=luacmd
+      local f=load(luacmd)
+      f()
       os.remove(v)
+      os.remove(sqlcmd)
     end
   end
 end
+
 
 function remove_old_results()
   local cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.result' 2>&1 | grep -v Permission"
@@ -165,6 +179,12 @@ db_random_ins_locked(ins,locked,{0,20})
 db_random_ins(1,{0,20})
 db_random_group(1,{0,10})
 print("checking results")
+for i=1,20 do
+  run_sql_results()
+  sleep(0.1)
+end
+print("again")
+db_random_group(1,{0,10})
 for i=1,20 do
   run_sql_results()
   sleep(0.1)
