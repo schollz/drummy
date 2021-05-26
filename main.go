@@ -16,13 +16,14 @@ var gid int
 var seen map[string]bool
 
 type Drum struct {
-	ID      int
-	GID     int
-	Ins     int
-	Density int
-	Fill    int
-	PID     int64
-	Pattern string
+	ID       int
+	GID      int
+	Ins      int
+	Density  int
+	GDensity int
+	Fill     int
+	PID      int64
+	Pattern  string
 }
 
 func main() {
@@ -35,7 +36,7 @@ func main() {
 	}
 	defer f.Close()
 	f.WriteString(`
-CREATE TABLE drum(id INTEGER, gid INTEGER, ins INTEGER, density INTEGER, fill INTEGER, pid INTEGER);
+CREATE TABLE drum(id INTEGER, gid INTEGER, ins INTEGER, density INTEGER, gdensity INTEGER, fill INTEGER, pid INTEGER);
 BEGIN;
 `)
 	for i := 1; i <= 10; i++ {
@@ -67,7 +68,7 @@ func generate(f *os.File, folderName string) (err error) {
 			continue
 		}
 		for _, drum := range drums {
-			f.WriteString(fmt.Sprintf("INSERT INTO drum VALUES (%d,%d,%d,%d,%d,%d);\n", drum.ID, drum.GID, drum.Ins, drum.Density, drum.Fill, drum.PID))
+			f.WriteString(fmt.Sprintf("INSERT INTO drum VALUES (%d,%d,%d,%d,%d,%d,%d);\n", drum.ID, drum.GID, drum.Ins, drum.Density, drum.GDensity, drum.Fill, drum.PID))
 		}
 	}
 	return
@@ -155,6 +156,14 @@ func midiToJSON(f string) (drums []Drum, err error) {
 			PID:     PatternToInt(s),
 		}
 	}
+	gdensity := 0
+	for _, drum := range drums {
+		gdensity += drum.Density
+	}
+	for i, _ := range drums {
+		drums[i].GDensity = gdensity / len(drums)
+	}
+
 	if _, ok := seen[fulltrack]; ok {
 		// reset ids
 		gid = startGID
