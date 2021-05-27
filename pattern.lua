@@ -125,14 +125,14 @@ function db_random_group(ins_to_find,density_limits)
   execute_sql_async(query)
 end
 
-function string.split(s, sep)
-    local fields = {}
-    
-    local sep = sep or " "
-    local pattern = string.format("([^%s]+)", sep)
-    string.gsub(s, pattern, function(c) fields[#fields + 1] = c end)
-    
-    return fields
+function string.split(s,sep)
+  local fields={}
+
+  local sep=sep or " "
+  local pattern=string.format("([^%s]+)",sep)
+  string.gsub(s,pattern,function(c) fields[#fields+1]=c end)
+
+  return fields
 end
 
 
@@ -146,20 +146,21 @@ function db_weighted_random(result)
     weight=tonumber(foo[2])
     table.insert(weights,weight)
     table.insert(pids,pid)
-    total_weight = total_weight+weight
+    total_weight=total_weight+weight
+  end
+  if total_weight==0 then
+    print("no results")
+    do return end
   end
   print("found "..#pids.." results")
   local randweight=math.random(0,total_weight-1)
   local pid_new=pids[1]
-  if pid_new == nil then 
-    print("NIL PID!!")
-  end
   for i,w in ipairs(weights) do
-    if randweight < w then 
+    if randweight<w then
       pid_new=pids[i]
       break
     end
-    randweight = randweight - w
+    randweight=randweight-w
   end
   return pid_new
 end
@@ -167,13 +168,17 @@ end
 -- db_pattern_like
 -- generates a new pattern for the "ins"
 -- based on the supplied "pid"
-function db_pattern_like(ins,ins_base,pid_base,not_pid)
-  if not_pid == nil then 
+function db_pattern_like(ins,ins_base,pid_base,do_pidadj,not_pid)
+  if not_pid==nil then
     not_pid=-1
   end
-  local query=string.format([[SELECT pid,count(pid) FROM drum INDEXED BY idx_gid WHERE gid in (SELECT gid FROM drum INDEXED BY idx_pid WHERE ins==%d AND pid==%d AND pid!=%d) AND ins==%d GROUP BY pid ORDER BY count(pid) DESC LIMIT 100]],ins_base,pid_base,not_pid,ins)
+  local pidtype="pid"
+  if do_pidadj then
+    pidtype="pidadj"
+  end
+  local query=string.format([[SELECT pid,count(pid) FROM drum INDEXED BY idx_gid WHERE gid in (SELECT gid FROM drum INDEXED BY idx_pid WHERE ins==%d AND %s==%d AND pid!=%d) AND ins==%d GROUP BY pid ORDER BY count(pid) DESC LIMIT 100]],ins_base,pidtype,pid_base,not_pid,ins)
   local result=os.capture(string.format('sqlite3 db.db "%s"',query))
-  local pid_new = db_weighted_random(result)
+  local pid_new=db_weighted_random(result)
   print(num_to_pattern(pid_base))
   print(num_to_pattern(pid_new))
   return pid_new
@@ -182,9 +187,9 @@ end
 
 math.randomseed(os.time())
 local pp="x---x---x-----x-"
-local pid1 = db_pattern_like(2,1,pattern_to_num(pp))
-pid1 = db_pattern_like(2,1,pattern_to_num(pp),pid1)
-pid1 = db_pattern_like(2,1,pattern_to_num(pp),pid1)
+local pid1=db_pattern_like(2,1,pattern_to_num(pp),false)
+pid1=db_pattern_like(2,1,pattern_to_num(pp),false,pid1)
+pid1=db_pattern_like(2,1,pattern_to_num(pp),false,pid1)
 
 function sleep(n) -- seconds
   local t0=os.clock()
