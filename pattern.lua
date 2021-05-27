@@ -152,7 +152,7 @@ function db_weighted_random(result)
     print("no results")
     do return end
   end
-  print("found "..#pids.." results")
+  --print("found "..#pids.." results")
   local randweight=math.random(0,total_weight-1)
   local pid_new=pids[1]
   for i,w in ipairs(weights) do
@@ -165,100 +165,29 @@ function db_weighted_random(result)
   return pid_new
 end
 
--- db_pattern_like
--- generates a new pattern for the "ins"
--- based on the supplied "pid"
-function db_pattern_like(ins,ins_base,pid_base,do_pidadj,not_pid)
-  if not_pid==nil then
-    not_pid=-1
-  end
-  local pidtype="pid"
-  if do_pidadj then
-    pidtype="pidadj"
-  end
-  local query=string.format([[SELECT pid,count(pid) FROM drum INDEXED BY idx_gid WHERE gid in (SELECT gid FROM drum INDEXED BY idx_pid WHERE ins==%d AND %s==%d AND pid!=%d) AND ins==%d GROUP BY pid ORDER BY count(pid) DESC LIMIT 100]],ins_base,pidtype,pid_base,not_pid,ins)
+function db_sql_weighted_(query)
   local result=os.capture(string.format('sqlite3 db.db "%s"',query))
   local pid_new=db_weighted_random(result)
-  print(num_to_pattern(pid_base))
-  print(num_to_pattern(pid_new))
   return pid_new
+end
+
+function db_pattern_adj(ins,pid_base,not_pid)
+  local query=string.format([[SELECT pid,count(pid) FROM drum INDEXED BY idx_pidadj WHERE ins==%d AND pidadj==%d AND pid!=%d GROUP BY pid ORDER BY count(pid) DESC LIMIT 100]],ins,pid_base,not_pid==nil and-1 or not_pid)
+  return db_sql_weighted_(query)
+end
+
+function db_pattern_like(ins,ins_base,pid_base,not_pid)
+  local query=string.format([[SELECT pid,count(pid) FROM drum INDEXED BY idx_gid WHERE gid in (SELECT gid FROM drum INDEXED BY idx_pid WHERE ins==%d AND pid==%d) AND ins==%d AND pid!=%d GROUP BY pid ORDER BY count(pid) DESC LIMIT 100]],ins_base,pid_base,ins,not_pid==nil and-1 or not_pid)
+  return db_sql_weighted_(query)
 end
 
 
 math.randomseed(os.time())
+print("RESULTS")
 local pp="x---x---x-----x-"
-local pid1=db_pattern_like(2,1,pattern_to_num(pp),false)
-pid1=db_pattern_like(2,1,pattern_to_num(pp),false,pid1)
-pid1=db_pattern_like(2,1,pattern_to_num(pp),false,pid1)
-
-function sleep(n) -- seconds
-  local t0=os.clock()
-  while os.clock()-t0<=n do end
+print(pp)
+local pid=nil
+for i=1,3 do
+  pid1=db_pattern_like(2,1,pattern_to_num(pp),pid1)
+  print(num_to_pattern(pid1))
 end
-
-cmd_cache={}
-
-function run_sql_results()
-  local cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.result' 2>&1 | grep -v Permission"
-  local s=os.capture(cmd)
-  fnames={}
-  for word in s:gmatch("%S+") do
-    table.insert(fnames,word)
-  end
-  for i,v in ipairs(fnames) do
-    print(i,v)
-    sqlcmd=v:gsub(".result",".sql")
-    if os.file_exists(v) and os.file_exists(sqlcmd) then
-      local luacmd=os.read(v)
-      cmd_cache[os.read(sqlcmd)]=luacmd
-      local f=load(luacmd)
-      f()
-      os.remove(v)
-      os.remove(sqlcmd)
-    end
-  end
-end
-
-
-function remove_old_results()
-  local cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.result' 2>&1 | grep -v Permission"
-  local s=os.capture(cmd)
-  local fnames={}
-  for word in s:gmatch("%S+") do table.insert(fnames,word) end
-for i,v in ipairs(fnames) do
-    print("removing old result "..v)
-    os.remove(v)
-  end
-  cmd="find "..TEMP_DIR.."* -not -empty -type f -name 'exec.*.sql' 2>&1 | grep -v Permission"
-  s=os.capture(cmd)
-  fnames={}
-  for word in s:gmatch("%S+") do
-    table.insert(fnames,word)
-  end
-  for i,v in ipairs(fnames) do
-    print("removing old sql "..v)
-    os.remove(v)
-  end
-end
-
-
-print(pattern_to_num("x---x----x--x-xx"))
-print(num_to_pattern(pattern_to_num("x---x----x--x-xx")))
-print(num_to_pattern(37443))
--- file glob
--- remove_old_results()
--- ins=2
--- locked={}
--- locked[1]="x---x---x---x---x---x---x---x---"
--- locked[3]="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
--- print("running")
--- for i=1,3 do
---   db_random_ins_locked(ins,locked,{0,20})
---   db_random_ins(1,{0,20})
---   db_random_group(1,{0,10})
---   print("checking results")
---   for i=1,20 do
---     run_sql_results()
---     sleep(0.1)
---   end
--- end
