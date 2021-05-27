@@ -181,9 +181,10 @@ end
 
 
 math.randomseed(os.time())
-local pid1 = db_pattern_like(2,1,pattern_to_num("x---x---x-----x-"))
-pid1 = db_pattern_like(2,1,pattern_to_num("x--xx---x---x-x-"),pid1)
-pid1 = db_pattern_like(2,1,pattern_to_num("x--xx---x---x-x-"),pid1)
+local pp="x---x---x-----x-"
+local pid1 = db_pattern_like(2,1,pattern_to_num(pp))
+pid1 = db_pattern_like(2,1,pattern_to_num(pp),pid1)
+pid1 = db_pattern_like(2,1,pattern_to_num(pp),pid1)
 
 function sleep(n) -- seconds
   local t0=os.clock()
