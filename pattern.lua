@@ -68,7 +68,7 @@ function num_to_pattern(shash)
     table.insert(re,shash%2==0 and"-" or "x")
     shash=math.floor(shash/2)
   end
-  while #re<32 do
+  while #re<16 do
     table.insert(re,"-")
   end
   return table.concat(re,"")
@@ -76,8 +76,8 @@ end
 
 assert(pattern_to_num("--x---x---x---x---x---x---x---x-")==1145324612,"BAD HASH")
 assert(pattern_to_num("--x---x---x---x---x---x---x---xx")==3292808260,"BAD HASH")
-assert(num_to_pattern(pattern_to_num("--x---x---x---x---x---x---x-----"))=="--x---x---x---x---x---x---x-----","BAD NUM")
-assert(num_to_pattern(pattern_to_num("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"))=="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","BAD NUM")
+assert(num_to_pattern(pattern_to_num("x---x---x---x---"))=="x---x---x---x---","BAD NUM")
+assert(num_to_pattern(pattern_to_num("xxxxxxxxxxxxxxxx"))=="xxxxxxxxxxxxxxxx","BAD NUM")
 
 
 -- runs sql in a non-blocking way
@@ -125,6 +125,65 @@ function db_random_group(ins_to_find,density_limits)
   execute_sql_async(query)
 end
 
+function string.split(s, sep)
+    local fields = {}
+    
+    local sep = sep or " "
+    local pattern = string.format("([^%s]+)", sep)
+    string.gsub(s, pattern, function(c) fields[#fields + 1] = c end)
+    
+    return fields
+end
+
+
+function db_weighted_random(result)
+  local pids={}
+  local weights={}
+  local total_weight=0
+  for line in result:gmatch("%S+") do
+    foo=string.split(line,"|")
+    pid=tonumber(foo[1])
+    weight=tonumber(foo[2])
+    table.insert(weights,weight)
+    table.insert(pids,pid)
+    total_weight = total_weight+weight
+  end
+  print("found "..#pids.." results")
+  local randweight=math.random(0,total_weight-1)
+  local pid_new=pids[1]
+  if pid_new == nil then 
+    print("NIL PID!!")
+  end
+  for i,w in ipairs(weights) do
+    if randweight < w then 
+      pid_new=pids[i]
+      break
+    end
+    randweight = randweight - w
+  end
+  return pid_new
+end
+
+-- db_pattern_like
+-- generates a new pattern for the "ins"
+-- based on the supplied "pid"
+function db_pattern_like(ins,ins_base,pid_base,not_pid)
+  if not_pid == nil then 
+    not_pid=-1
+  end
+  local query=string.format([[SELECT pid,count(pid) FROM drum INDEXED BY idx_gid WHERE gid in (SELECT gid FROM drum INDEXED BY idx_pid WHERE ins==%d AND pid==%d AND pid!=%d) AND ins==%d GROUP BY pid ORDER BY count(pid) DESC LIMIT 100]],ins_base,pid_base,not_pid,ins)
+  local result=os.capture(string.format('sqlite3 db.db "%s"',query))
+  local pid_new = db_weighted_random(result)
+  print(num_to_pattern(pid_base))
+  print(num_to_pattern(pid_new))
+  return pid_new
+end
+
+
+math.randomseed(os.time())
+local pid1 = db_pattern_like(2,1,pattern_to_num("x---x---x-----x-"))
+pid1 = db_pattern_like(2,1,pattern_to_num("x--xx---x---x-x-"),pid1)
+pid1 = db_pattern_like(2,1,pattern_to_num("x--xx---x---x-x-"),pid1)
 
 function sleep(n) -- seconds
   local t0=os.clock()
@@ -176,20 +235,24 @@ for i,v in ipairs(fnames) do
   end
 end
 
+
+print(pattern_to_num("x---x----x--x-xx"))
+print(num_to_pattern(pattern_to_num("x---x----x--x-xx")))
+print(num_to_pattern(37443))
 -- file glob
-remove_old_results()
-ins=2
-locked={}
-locked[1]="x---x---x---x---x---x---x---x---"
-locked[3]="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-print("running")
-for i=1,3 do
-  db_random_ins_locked(ins,locked,{0,20})
-  db_random_ins(1,{0,20})
-  db_random_group(1,{0,10})
-  print("checking results")
-  for i=1,20 do
-    run_sql_results()
-    sleep(0.1)
-  end
-end
+-- remove_old_results()
+-- ins=2
+-- locked={}
+-- locked[1]="x---x---x---x---x---x---x---x---"
+-- locked[3]="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+-- print("running")
+-- for i=1,3 do
+--   db_random_ins_locked(ins,locked,{0,20})
+--   db_random_ins(1,{0,20})
+--   db_random_group(1,{0,10})
+--   print("checking results")
+--   for i=1,20 do
+--     run_sql_results()
+--     sleep(0.1)
+--   end
+-- end
