@@ -30,25 +30,6 @@ function os.capture(cmd,raw)
   return s
 end
 
-function os.file_exists(name)
-  local f=io.open(name,"r")
-  if f~=nil then io.close(f) return true else return false end
-end
-
-function os.write(fname,data)
-  local filehandle=io.open(fname,"w")
-  filehandle:write(data)
-  filehandle:close()
-end
-
-
-function os.read(fname)
-  local f=io.open(fname,"rb")
-  local content=f:read("*all")
-  f:close()
-  return content
-end
-
 function pattern_to_num(pattern_string)
   local shash=0
   local i=0
@@ -80,51 +61,6 @@ assert(num_to_pattern(pattern_to_num("x---x---x---x---"))=="x---x---x---x---","B
 assert(num_to_pattern(pattern_to_num("xxxxxxxxxxxxxxxx"))=="xxxxxxxxxxxxxxxx","BAD NUM")
 
 
--- runs sql in a non-blocking way
-function execute_sql_async(query)
-  if cmd_cache[query]~=nil then
-    f=load(cmd_cache[query])
-    f()
-    do return end
-  end
-  local rand_string=random_string(4)
-  print(rand_string)
-  fname=TEMP_DIR.."exec."..rand_string..".sql"
-  fnameout=TEMP_DIR.."exec."..rand_string..".result"
-  os.write(fname,query)
-  os.execute("cat "..fname.." | sqlite3 db.db >"..fnameout.." 2>&1 &")
-end
-
-function db_random_ins(ins_to_find,density_limits)
-  query=string.format([[SELECT 'print(num_to_pattern('||pid||')); test_global="ok"' FROM drum INDEXED BY idx_ins WHERE ins==%d AND density>%d AND density<%d ORDER BY substr(id * 0.%s, length(id) + 2) LIMIT 1]],ins_to_find,density_limits[1],density_limits[2],RANDOMSEED)
-  print(query)
-
-  -- async method
-  execute_sql_async(query)
-end
-
-function db_random_ins_locked(ins_to_find,ins_locked,density_limits)
-  local qs={}
-  for ins,pattern_string in pairs(ins_locked) do
-    print(ins,pattern_string)
-    table.insert(qs,"SELECT gid FROM drum INDEXED BY idx_pid WHERE ins=="..ins.." AND pid=="..pattern_to_num(pattern_string))
-  end
-  local query=table.concat(qs," INTERSECT ")
-  query=string.format([[SELECT 'print("'||pid||'"); test_global="ok"' FROM drum WHERE gid in (%s) AND ins==%d AND density>%d AND density<%d ORDER BY substr(id * 0.%s, length(id) + 2) LIMIT 1]],query,ins_to_find,density_limits[1],density_limits[2],RANDOMSEED)
-  print(query)
-
-  -- async method
-  execute_sql_async(query)
-end
-
-function db_random_group(ins_to_find,density_limits)
-  local query=string.format([[SELECT "if "||ins||"<=4 then print("||ins||",num_to_pattern("||pid||")) end" FROM drum INDEXED BY idx_gid WHERE gid in (SELECT gid FROM drum INDEXED BY idx_ins WHERE ins==%d AND gdensity>%d AND gdensity<=%d ORDER BY substr(id * 0.%s, length(id) + 2) LIMIT 1)]],ins_to_find,density_limits[1],density_limits[2],RANDOMSEED)
-  print(query)
-
-  -- async method
-  execute_sql_async(query)
-end
-
 function string.split(s,sep)
   local fields={}
 
@@ -136,7 +72,8 @@ function string.split(s,sep)
 end
 
 
-function db_weighted_random(result)
+function db_sql_weighted_(query)
+  local result=os.capture(string.format('sqlite3 db.db "%s"',query))
   local pids={}
   local weights={}
   local total_weight=0
@@ -162,12 +99,6 @@ function db_weighted_random(result)
     end
     randweight=randweight-w
   end
-  return pid_new
-end
-
-function db_sql_weighted_(query)
-  local result=os.capture(string.format('sqlite3 db.db "%s"',query))
-  local pid_new=db_weighted_random(result)
   return pid_new
 end
 
