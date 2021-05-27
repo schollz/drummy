@@ -191,3 +191,10 @@ for i=1,3 do
   pid1=db_pattern_like(2,1,pattern_to_num(pp),pid1)
   print(num_to_pattern(pid1))
 end
+print("ADJ")
+pp="x---x---x---x---"
+local pid=nil
+for i=1,10 do
+  pid1=db_pattern_adj(5,pattern_to_num(pp),pid1)
+  print(num_to_pattern(pid1))
+end
